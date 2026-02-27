@@ -2,35 +2,28 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
 import os
+from supabase import create_client, Client
 import google.generativeai as genai
 from datetime import datetime
-import json
-import random
 
 app = Flask(__name__)
 CORS(app)
 
+# Configure Supabase
+SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
+SUPABASE_KEY = os.getenv('VITE_SUPABASE_PUBLISHABLE_KEY')
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 # Configure Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
-# Try to initialize model with fallback options
 try:
     model = genai.GenerativeModel('models/gemini-2.5-flash')
-    print("[OK] Using Gemini 2.5 Flash")
-except Exception as e:
+except:
     try:
         model = genai.GenerativeModel('models/gemini-flash-latest')
-        print("[OK] Using Gemini Flash Latest")
-    except Exception as e2:
-        try:
-            model = genai.GenerativeModel('models/gemini-pro-latest')
-            print("[OK] Using Gemini Pro Latest")
-        except Exception as e3:
-            model = None
-            print(f"[WARNING] Could not initialize Gemini model: {e3}")
-
-# Global storage for transactions (in-memory)
-stored_transactions_df = None
+    except:
+        model = None
 
 # Category keywords for fallback
 CATEGORY_RULES = {
@@ -44,14 +37,23 @@ CATEGORY_RULES = {
 }
 
 def categorize_transaction_fallback(description):
-    """Rule-based categorization fallback"""
     desc_lower = str(description).lower()
-    
     for category, keywords in CATEGORY_RULES.items():
         if any(keyword in desc_lower for keyword in keywords):
             return category
-    
     return 'Shopping'
+
+def get_user_from_token(auth_header):
+    """Extract user from Authorization header"""
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+    
+    token = auth_header.replace('Bearer ', '')
+    try:
+        user = supabase.auth.get_user(token)
+        return user.user.id if user and user.user else None
+    except:
+        return None
 
 @app.route('/api/hello', methods=['GET'])
 def hello():
@@ -59,142 +61,106 @@ def hello():
 
 @app.route('/api/analyze-transactions', methods=['POST'])
 def analyze_transactions():
-    global stored_transactions_df
-    
     try:
+        auth_header = request.headers.get('Authorization')
+        user_id = get_user_from_token(auth_header)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized. Please login.'}), 401
+        
         if 'csvFile' not in request.files:
             return jsonify({'error': 'No file uploaded'}), 400
         
         file = request.files['csvFile']
         df = pd.read_csv(file)
-        
-        # Normalize column names
         df.columns = df.columns.str.strip()
         
-        # Handle different CSV formats
-        if 'Description' in df.columns:
-            desc_col = 'Description'
-        elif 'description' in df.columns:
-            desc_col = 'description'
-        else:
-            return jsonify({'error': 'CSV must have a Description column'}), 400
-        
-        if 'Amount' in df.columns:
-            amt_col = 'Amount'
-        elif 'amount' in df.columns:
-            amt_col = 'amount'
-        else:
-            return jsonify({'error': 'CSV must have an Amount column'}), 400
-        
-        date_col = 'Date' if 'Date' in df.columns else ('date' if 'date' in df.columns else None)
+        desc_col = 'Description' if 'Description' in df.columns else 'description'
+        amt_col = 'Amount' if 'Amount' in df.columns else 'amount'
+        date_col = 'Date' if 'Date' in df.columns else 'date'
         
         df['description'] = df[desc_col]
         df['amount'] = pd.to_numeric(df[amt_col], errors='coerce').abs()
-        df['date'] = df[date_col] if date_col else 'Unknown'
+        df['date'] = df[date_col] if date_col in df.columns else datetime.now().strftime('%Y-%m-%d')
         df['drcr'] = df['DR/CR'] if 'DR/CR' in df.columns else 'DR'
         df = df.dropna(subset=['amount'])
-        
-        # Use fallback categorization for serverless
         df['category'] = df['description'].apply(categorize_transaction_fallback)
         
-        stored_transactions_df = df.copy()
+        transactions_to_insert = []
+        for _, row in df.iterrows():
+            transactions_to_insert.append({
+                'user_id': user_id,
+                'date': str(row['date']),
+                'description': row['description'],
+                'amount': float(row['amount']),
+                'category': row['category'],
+                'transaction_type': row['drcr'],
+                'categorization_method': 'rule_based'
+            })
         
-        # Analytics
+        if transactions_to_insert:
+            supabase.table('transactions').insert(transactions_to_insert).execute()
+        
         income_df = df[df['drcr'] == 'CR']
         expense_df = df[df['drcr'] == 'DR']
-        
-        total_inflow = income_df['amount'].sum()
-        total_outflow = expense_df['amount'].sum()
-        
-        category_totals = df[df['category'] != 'Income'].groupby('category')['amount'].sum()
         
         response_data = {
             'categorized': df[['description', 'category', 'amount', 'date']].to_dict('records'),
             'analytics': {
-                'totalInflow': float(total_inflow),
-                'totalOutflow': float(total_outflow),
+                'totalInflow': float(income_df['amount'].sum()),
+                'totalOutflow': float(expense_df['amount'].sum()),
                 'score': 75,
-                'aiTip': 'Track your expenses regularly and look for areas to reduce spending.'
+                'aiTip': 'Track your expenses regularly.'
             }
         }
         
         return jsonify(response_data)
-        
     except Exception as e:
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/ask-question', methods=['POST'])
 def ask_question():
-    global stored_transactions_df
-    
     try:
+        auth_header = request.headers.get('Authorization')
+        user_id = get_user_from_token(auth_header)
+        
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
         data = request.get_json()
         user_question = data.get('question')
         
-        if not user_question:
-            return jsonify({'error': 'Question is required'}), 400
+        response = supabase.table('transactions').select('*').eq('user_id', user_id).execute()
+        has_data = len(response.data) > 0
         
-        has_data = stored_transactions_df is not None and len(stored_transactions_df) > 0
-        
-        if has_data:
-            income_df = stored_transactions_df[stored_transactions_df['category'] == 'Income']
-            expense_df = stored_transactions_df[stored_transactions_df['category'] != 'Income']
-            
-            total_income = income_df['amount'].sum()
-            total_expenses = expense_df['amount'].sum()
-            
-            expense_breakdown = expense_df.groupby('category')['amount'].sum().to_dict()
-            
-            breakdown_text = "\n".join([
-                f"- {cat}: ₹{amt:.2f}" for cat, amt in expense_breakdown.items()
-            ])
-            
-            prompt = f"""You are a helpful financial advisor for SnapSpend. The user has uploaded their transaction data. Here's their financial summary:
-
-📊 Financial Overview:
-- Total Income: ₹{total_income:.2f}
-- Total Expenses: ₹{total_expenses:.2f}
-- Net Savings: ₹{(total_income - total_expenses):.2f}
-
-💰 Spending by Category:
-{breakdown_text}
-
-User Question: "{user_question}"
-
-Provide a helpful, personalized answer based on their actual transaction data. Keep it conversational and actionable (2-4 sentences)."""
+        if has_data and model:
+            df = pd.DataFrame(response.data)
+            prompt = f"Financial advisor question: {user_question}. Answer in 2-3 sentences."
+            answer = model.generate_content(prompt).text.strip()
         else:
-            prompt = f"""You are a helpful financial advisor for SnapSpend. Provide general financial advice.
-
-User Question: "{user_question}"
-
-Provide helpful financial advice (2-4 sentences)."""
+            answer = "Please upload your CSV first for personalized advice."
         
-        if model is None:
-            answer = "I'm currently unable to process your question. Please check if the AI service is properly configured."
-        else:
-            response = model.generate_content(prompt)
-            answer = response.text.strip()
-        
-        return jsonify({
-            'answer': answer,
-            'hasData': has_data
-        })
-        
+        return jsonify({'answer': answer, 'hasData': has_data})
     except Exception as e:
-        return jsonify({'error': 'Failed to answer question', 'details': str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/check-data', methods=['GET'])
 def check_data():
-    global stored_transactions_df
-    if stored_transactions_df is None:
+    try:
+        auth_header = request.headers.get('Authorization')
+        user_id = get_user_from_token(auth_header)
+        
+        if not user_id:
+            return jsonify({'loaded': False, 'count': 0})
+        
+        response = supabase.table('transactions').select('category').eq('user_id', user_id).execute()
+        
+        return jsonify({
+            'loaded': len(response.data) > 0,
+            'count': len(response.data)
+        })
+    except:
         return jsonify({'loaded': False, 'count': 0})
-    return jsonify({
-        'loaded': True,
-        'count': len(stored_transactions_df),
-        'categories': stored_transactions_df['category'].unique().tolist()
-    })
 
-# Vercel serverless handler
-def handler(request):
-    with app.request_context(request.environ):
-        return app.full_dispatch_request()
+# Vercel handler
+app = app

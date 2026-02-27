@@ -7,16 +7,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/app.py"
+      "destination": "/api/app"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "functions": {
-    "api/**/*.py": {
-      "runtime": "python3.11"
-    }
-  }
+  ]
 }
