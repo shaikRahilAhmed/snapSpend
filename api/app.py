@@ -45,15 +45,19 @@ def categorize_transaction_fallback(description):
 
 def get_user_from_token(auth_header):
     """Extract user from Authorization header"""
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return None
+    # TEMPORARY: For testing without auth, return a dummy user ID
+    # TODO: Enable auth in production
+    return "test-user-123"
     
-    token = auth_header.replace('Bearer ', '')
-    try:
-        user = supabase.auth.get_user(token)
-        return user.user.id if user and user.user else None
-    except:
-        return None
+    # Uncomment below for production with auth:
+    # if not auth_header or not auth_header.startswith('Bearer '):
+    #     return None
+    # token = auth_header.replace('Bearer ', '')
+    # try:
+    #     user = supabase.auth.get_user(token)
+    #     return user.user.id if user and user.user else None
+    # except:
+    #     return None
 
 @app.route('/api/hello', methods=['GET'])
 def hello():
