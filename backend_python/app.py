@@ -385,10 +385,19 @@ User Question: "{user_question}"
 Provide helpful financial advice or information. Keep your response concise and practical (2-4 sentences). Focus on actionable financial advice. Use plain text, no bold or formatting."""
         
         if model is None:
-            answer = "I'm currently unable to process your question. Please check if the AI service is properly configured."
+            answer = "I'm currently unable to process your question. The AI service is not configured. However, I can see you have data uploaded. Please check the Transaction Analyzer for detailed insights."
+            print("[WARN] Gemini model not initialized")
         else:
-            response = model.generate_content(prompt)
-            answer = response.text.strip()
+            try:
+                response = model.generate_content(prompt)
+                answer = response.text.strip()
+            except Exception as ai_error:
+                print(f"[ERROR] Gemini API error: {str(ai_error)}")
+                # Fallback response
+                if has_data:
+                    answer = f"Based on your data: You have ₹{total_income:.2f} income and ₹{total_expenses:.2f} expenses. Your top spending category is {list(expense_breakdown.keys())[0] if expense_breakdown else 'unknown'}. Consider reviewing your spending in the Transaction Analyzer for detailed insights."
+                else:
+                    answer = "I'm having trouble connecting to the AI service. Please try uploading your CSV in the Transaction Analyzer first, or try again later."
         
         print("[OK] AI response generated")
         return jsonify({
