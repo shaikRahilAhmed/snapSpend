@@ -175,22 +175,22 @@ export default function TransactionAnalyzer() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-2 sm:p-4">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-gray-900">
+        <div className="text-center space-y-3 sm:space-y-4 px-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
             Transaction Analyzer
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto">
             Upload your CSV file to get AI-powered insights into your spending patterns and financial habits
           </p>
         </div>
 
         {/* Upload Section */}
         <Card className="shadow-xl border-0">
-          <CardContent className="p-8">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <CardContent className="p-4 sm:p-8">
+            <div className="flex flex-col gap-3 sm:gap-4">
               <input
                 type="file"
                 accept=".csv"
@@ -202,28 +202,30 @@ export default function TransactionAnalyzer() {
                 onClick={() => fileInput.current?.click()}
                 disabled={loading}
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto text-sm sm:text-base"
               >
-                <Upload className="mr-2 h-5 w-5" />
+                <Upload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 {loading ? "Analyzing..." : "Upload CSV File"}
               </Button>
-              <Button
-                onClick={() => window.location.href = "/chatbot"}
-                variant="outline"
-                size="lg"
-                className="px-8 py-3"
-              >
-                <MessageCircle className="mr-2 h-5 w-5" />
-                AI Chat
-              </Button>
-              <Button
-                onClick={() => window.location.href = "/nudge"}
-                size="lg"
-                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-              >
-                <Target className="mr-2 h-5 w-5" />
-                Budget Nudge Dashboard
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <Button
+                  onClick={() => window.location.href = "/chatbot"}
+                  variant="outline"
+                  size="lg"
+                  className="px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto text-sm sm:text-base"
+                >
+                  <MessageCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  AI Chat
+                </Button>
+                <Button
+                  onClick={() => window.location.href = "/nudge"}
+                  size="lg"
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto text-sm sm:text-base"
+                >
+                  <Target className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  Budget Nudge Dashboard
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -231,58 +233,58 @@ export default function TransactionAnalyzer() {
         {data && (
           <div className="space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <Card className="shadow-lg border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                    <TrendingUp className="mr-2 h-4 w-4 text-green-600" />
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 flex items-center">
+                    <TrendingUp className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                     Total Income
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600">
+                  <div className="text-2xl sm:text-3xl font-bold text-green-600">
                     {formatCurrency(data.analytics.totalInflow)}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="shadow-lg border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                    <TrendingDown className="mr-2 h-4 w-4 text-red-600" />
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 flex items-center">
+                    <TrendingDown className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-red-600" />
                     Total Expenses
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-red-600">
+                  <div className="text-2xl sm:text-3xl font-bold text-red-600">
                     {formatCurrency(data.analytics.totalOutflow)}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="shadow-lg border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                    <DollarSign className="mr-2 h-4 w-4 text-blue-600" />
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 flex items-center">
+                    <DollarSign className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
                     First Half Spending
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900">
                     {formatCurrency(data.analytics.halfMonthComparison.firstHalf)}
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="shadow-lg border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                    <Target className="mr-2 h-4 w-4 text-purple-600" />
+                <CardHeader className="pb-2 sm:pb-3">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 flex items-center">
+                    <Target className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
                     Financial Score
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-purple-600">
+                  <div className="text-2xl sm:text-3xl font-bold text-purple-600">
                     {data.analytics.score}/100
                   </div>
                 </CardContent>
