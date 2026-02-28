@@ -166,5 +166,5 @@ def check_data():
     except:
         return jsonify({'loaded': False, 'count': 0})
 
-# Vercel handler
-app = app
+# Export for Vercel
+handler = app
